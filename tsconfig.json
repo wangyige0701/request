@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"lib": ["ESNext", "DOM"],
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "Node",
+		"strict": true,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"]
+		},
+		"typeRoots": ["node_modules/@types"]
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules"]
+}
