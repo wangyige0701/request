@@ -1,4 +1,6 @@
-import { SingleType } from './utils/single';
+import type { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import type { Fn } from '@wang-yige/utils';
+import type { SingleType } from './utils/single';
 
 export interface CustomConfig {
 	/**
@@ -23,8 +25,29 @@ export interface CustomConfig {
 	 */
 	cacheTime?: number;
 	/**
-	 * Max time to request in seconds.
-	 * - default `10`
+	 * Max number to sync request.
+	 * - default `5`
 	 */
 	maximum?: number;
 }
+
+export type RequestConfig<D = any> = AxiosRequestConfig<D> & CustomConfig & { __abort?: Fn };
+
+export type InterceptRequestConfig = InternalAxiosRequestConfig<any> &
+	CustomConfig & {
+		__abort?: Fn;
+		__single?: true;
+	};
+
+export type InterceptResponseConfig = { config: InterceptRequestConfig };
+
+export type AbortPromise<T> = Promise<T> & {
+	/**
+	 * Abort the request.
+	 */
+	abort: Fn;
+	/**
+	 * Abort the request, same as `abort` method.
+	 */
+	cancel: Fn;
+};
