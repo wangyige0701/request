@@ -1,16 +1,21 @@
-import { Fn, hasOwn, isString, nextTick } from '@wang-yige/utils';
+import { Fn, isString } from '@wang-yige/utils';
 import { Axios, type InternalAxiosRequestConfig, type AxiosResponse, AxiosInterceptorManager } from 'axios';
-import type { AbortPromise, RequestConfig, InterceptRequestConfig, InterceptResponseConfig } from './config';
+import type {
+	RequestConfig,
+	InterceptRequestConfig,
+	InterceptResponseConfig,
+	RequestConfigWithAbort,
+	AbortPromise,
+} from './config';
 import { CacheController, ResponseCache } from './utils/cache';
-import { RequestSingle, SingleController, SingleType } from './utils/single';
-import { createAbortController } from './utils/abort';
+import { SingleController, SingleType } from './utils/single';
 
 export class APIRequest {
 	/** The type of single */
 	static Single = SingleType;
 
 	#axios: Axios;
-	#userAgent: string = 'axios-package';
+	#userAgent: string = '';
 	#requestInterceptor: {
 		onFulfilled: (
 			value: InternalAxiosRequestConfig<any>,
@@ -35,9 +40,6 @@ export class APIRequest {
 			onFulfilled: (config: InterceptRequestConfig) => {
 				const { headers } = config;
 				this.#cacheController.request(config);
-				if (!config.__single) {
-					this.#singleController.request(config);
-				}
 				if (!this.#userAgent) {
 					delete headers?.['User-Agent'];
 				} else if (headers) {
@@ -56,17 +58,11 @@ export class APIRequest {
 		this.#axios.interceptors.response.use(
 			(response: AxiosResponse<any, any> & InterceptResponseConfig) => {
 				this.#cacheController.response(response.config, response);
-				this.#singleController.response(response.config);
 				return response;
 			},
 			async err => {
 				if (err instanceof ResponseCache) {
 					return Promise.resolve(err.response);
-				}
-				if (err instanceof RequestSingle) {
-					const response = await err.promise;
-					this.#cacheController.response(err.config, response);
-					return response;
 				}
 				return Promise.reject(err);
 			},
@@ -99,31 +95,26 @@ export class APIRequest {
 	}
 
 	get<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: RequestConfig<D>) {
-		return this.#registerAbortSingal<R>(this.#axios.get.bind(this.#axios, url), config);
+		return this.#proxy<R>(this.#axios.get.bind(this.#axios, url), url, config);
 	}
 
 	post<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: RequestConfig<D>) {
-		return this.#axios.post<T, R, D>(url, data, config);
+		return this.#proxy<R>(this.#axios.post.bind(this, url, data), url, config);
 	}
 
 	put<T = any, R = AxiosResponse<T>, D = any>(url: string, data?: D, config?: RequestConfig<D>) {
-		return this.#axios.put<T, R, D>(url, data, config);
+		return this.#proxy<R>(this.#axios.put.bind(this, url, data), url, config);
 	}
 
 	delete<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: RequestConfig<D>) {
-		return this.#axios.delete<T, R, D>(url, config);
+		return this.#proxy<R>(this.#axios.delete.bind(this, url), url, config);
 	}
 
 	userAgent(str: string) {
 		this.#userAgent = str;
 	}
 
-	#registerAbortSingal<R>(fn: Fn<[config: RequestConfig], Promise<any>>, config: RequestConfig = {}) {
-		const abort = createAbortController(config);
-		config.__abort = abort;
-		const abortPromise = fn(config) as AbortPromise<R>;
-		abortPromise.abort = abort;
-		abortPromise.cancel = abort;
-		return abortPromise;
+	#proxy<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort = {}) {
+		return this.#singleController.request<R>(fn, url, config) as AbortPromise<R>;
 	}
 }

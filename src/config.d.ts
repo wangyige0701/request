@@ -25,23 +25,40 @@ export interface CustomConfig {
 	 */
 	cacheTime?: number;
 	/**
+	 * Retry the request if failed.
+	 * - default `true`
+	 */
+	retry?: boolean;
+	/**
+	 * Retry count.
+	 * - default `5`
+	 */
+	retryCount?: number;
+	/**
+	 * Delay time for retry in miliseconds.
+	 */
+	retryDelay?: number;
+	/**
+	 * The domains that can be retried, if set it,
+	 * the retry count will be the max of the `domains`'s length and `retryCount`.
+	 */
+	domains?: string[];
+	/**
 	 * Max number to sync request.
 	 * - default `5`
 	 */
 	maximum?: number;
 }
 
-export type RequestConfig<D = any> = AxiosRequestConfig<D> & CustomConfig & { __abort?: Fn };
+export type RequestConfig<D = any> = AxiosRequestConfig<D> & CustomConfig;
 
-export type InterceptRequestConfig = InternalAxiosRequestConfig<any> &
-	CustomConfig & {
-		__abort?: Fn;
-		__single?: true;
-	};
+export type RequestConfigWithAbort = RequestConfig & { __abort?: Fn };
+
+export type InterceptRequestConfig = InternalAxiosRequestConfig<any> & CustomConfig;
 
 export type InterceptResponseConfig = { config: InterceptRequestConfig };
 
-export type AbortPromise<T> = Promise<T> & {
+export type AbortPromise<T = any> = Promise<T> & {
 	/**
 	 * Abort the request.
 	 */

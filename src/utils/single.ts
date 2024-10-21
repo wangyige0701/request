@@ -1,15 +1,8 @@
-import type { InternalAxiosRequestConfig, AxiosResponse, Axios } from 'axios';
-import {
-	type Fn,
-	type PromiseReject,
-	type PromiseResolve,
-	createPromise,
-	nextTick,
-	upperCase,
-	UseQueue,
-} from '@wang-yige/utils';
-import type { InterceptRequestConfig, InterceptResponseConfig } from '@/config';
+import type { Axios } from 'axios';
+import { type Fn, type PromiseResolve, createPromise, upperCase, ParallelTask } from '@wang-yige/utils';
+import type { AbortPromise, RequestConfig, RequestConfigWithAbort } from '@/config';
 import { Methods } from './methods';
+import { createAbortController } from './abort';
 
 export enum SingleType {
 	/**
@@ -28,132 +21,78 @@ export enum SingleType {
 	QUEUE = 'queue',
 }
 
-export class RequestSingle {
-	promise: Promise<AxiosResponse>;
-	config: InterceptRequestConfig;
-
-	constructor(promise: Promise<AxiosResponse>, config: InterceptRequestConfig) {
-		this.promise = promise;
-		this.config = config;
-	}
-}
-
-type QueueValue = { fn: Fn<[], Promise<AxiosResponse>>; resolve: PromiseResolve; reject: PromiseReject };
-
-class SingleQueue<T extends QueueValue> extends UseQueue<T> {
-	#isRunning: boolean = false;
-
-	constructor() {
-		super();
-	}
-
-	enQueue(...args: T[]): void {
-		super.enQueue(...args);
-	}
-
-	execute() {
-		if (this.#isRunning) {
-			return;
-		}
-		if (this.length) {
-			this.#isRunning = true;
-			nextTick(async () => {
-				const { fn, resolve, reject } = this.deQueue!;
-				try {
-					const res = await fn();
-					this.execute();
-					resolve(res);
-				} catch (error) {
-					this.execute();
-					reject(error);
-				}
-			});
-		} else {
-			this.#isRunning = false;
-		}
-	}
-}
-
 export class SingleController {
 	#axios: Axios;
-	#singleQueues: Record<string, SingleQueue<QueueValue>> = {};
-	#singleCurrent: Map<string, InterceptRequestConfig> = new Map();
+	#singleTasks: Map<string, ParallelTask> = new Map();
+	#singleNext: Map<string, Fn> = new Map();
+	#singlePrev: Set<string> = new Set();
 
 	constructor(axios: Axios) {
 		this.#axios = axios;
 	}
 
-	request(config: InterceptRequestConfig) {
+	request<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort) {
 		const { single = true, singleType = SingleType.QUEUE } = config;
-		if (!this.#isSingle(single, singleType)) {
-			return;
-		}
-		const KEY = this.#singleKey(config);
-		if (!this.#singleCurrent.has(KEY)) {
-			this.#singleCurrent.set(KEY, config);
-			return;
-		}
-		if (singleType === SingleType.NEXT) {
-			const target = this.#singleCurrent.get(KEY)!;
-			if (target) {
-				target.__abort?.();
-			}
-			this.#singleCurrent.set(KEY, config);
-			return;
-		} else if (singleType === SingleType.PREV) {
-			try {
-				config.__abort?.();
-			} catch (err) {
-				throw new Error('Request cancelled, because of single request [Next module]', {
-					cause: err,
-				});
-			}
-			return Promise.reject();
-		}
-		if (!this.#singleQueues[KEY]) {
-			this.#singleQueues[KEY] = new SingleQueue();
-		}
-		const queue = this.#singleQueues[KEY];
-		const { promise, resolve, reject } = createPromise<AxiosResponse>();
-		queue.enQueue({
-			fn: async () => {
-				config.__single = true;
-				this.#singleCurrent.set(KEY, config);
-				return await this.#axios.request(config);
-			},
-			resolve,
-			reject,
-		});
-		throw new RequestSingle(promise, config);
-	}
-
-	response(config: InterceptResponseConfig['config']) {
-		const { single = true, singleType = SingleType.QUEUE } = config;
-		if (!this.#isSingle(single, singleType)) {
-			return;
-		}
-		const KEY = this.#singleKey(config);
-		if (singleType === SingleType.QUEUE) {
-			const queue = this.#singleQueues[KEY];
-			if (queue) {
-				queue.execute();
-				if (queue.length) {
-					return;
+		if (single !== false) {
+			const KEY = this.#singleKey(url, config);
+			if (singleType === SingleType.QUEUE) {
+				const { promise, resolve, reject } = createPromise<R, AbortPromise<R>>();
+				if (!this.#singleTasks.has(KEY)) {
+					this.#singleTasks.set(KEY, new ParallelTask(1));
+					this.#singleTasks.get(KEY)!.onEmpty(() => {
+						this.#singleTasks.delete(KEY);
+					});
 				}
+				const tasks = this.#singleTasks.get(KEY)!;
+				const task = async () => {
+					await this.#send<R>(fn, config).then(resolve, reject);
+				};
+				tasks.add(task);
+				promise.abort = promise.cancel = () => {
+					if (config.__abort) {
+						return config.__abort();
+					}
+					return tasks.cancel(task);
+				};
+				return promise;
+			}
+			if (singleType === SingleType.NEXT) {
+				if (this.#singleNext.has(KEY)) {
+					this.#singleNext.get(KEY)?.();
+				}
+				const promise = this.#send<R>(fn, config);
+				this.#singleNext.set(KEY, promise.abort);
+				promise.finally(() => {
+					this.#singleNext.delete(KEY);
+				});
+				return promise;
+			}
+			if (singleType === SingleType.PREV) {
+				if (this.#singlePrev.has(KEY)) {
+					throw new Error('[Single#Prev] The previous request has not been completed');
+				}
+				this.#singlePrev.add(KEY);
+				const promise = this.#send<R>(fn, config);
+				promise.finally(() => {
+					this.#singlePrev.delete(KEY);
+				});
+				return promise;
 			}
 		}
-		this.#singleCurrent.delete(KEY);
+		return this.#send<R>(fn, config);
 	}
 
-	#singleKey(config: InternalAxiosRequestConfig) {
+	#send<R>(fn: Fn<[config: RequestConfig], Promise<any>>, config: RequestConfigWithAbort = {}) {
+		const abort = createAbortController(config);
+		config.__abort = abort;
+		const promise = fn(config) as AbortPromise<R>;
+		promise.abort = abort;
+		promise.cancel = abort;
+		return promise;
+	}
+
+	#singleKey(url: string, config: RequestConfig) {
 		const { method = Methods.GET } = config;
-		return `//${upperCase(method)}::${config.baseURL}${config.url}`;
-	}
-
-	#isSingle(single: boolean, singleType: SingleType) {
-		return (
-			single !== false &&
-			(singleType === SingleType.QUEUE || singleType === SingleType.NEXT || singleType === SingleType.PREV)
-		);
+		return `//${upperCase(method)}::${this.#axios.defaults.baseURL}${url}`;
 	}
 }

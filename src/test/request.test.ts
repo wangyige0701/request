@@ -6,7 +6,7 @@ describe('APIRequest', () => {
 	it('cache', async () => {
 		const Root = new APIRequest('http://localhost:3000');
 		Root.response.use(val => {
-			// console.log('use');
+			console.log('use');
 			return Promise.resolve(val.data);
 		});
 		const api = () => Root.get('/cache', { cache: true, cacheTime: 2000 });
@@ -28,7 +28,11 @@ describe('APIRequest', () => {
 		});
 		let i = 0;
 		const api = () =>
-			Root.get('/single/queue', { single: true, singleType: APIRequest.Single.QUEUE, params: { index: i++ } });
+			Root.get('/single/queue', {
+				single: true,
+				singleType: APIRequest.Single.QUEUE,
+				params: { index: i++ },
+			});
 		const current = Date.now();
 		await delay(500);
 
@@ -36,13 +40,60 @@ describe('APIRequest', () => {
 		const result2 = api();
 		const result3 = api();
 		const result4 = api();
-		const result = api();
-		await result.then(res => console.log('result', res));
+		const result5 = api();
+		const result6 = api();
+		const result7 = api();
+		result3.abort();
+		await result5.then(res => console.log('result5', res));
+		result6.cancel();
 		result1.then(res => console.log('result1', res));
 		result2.then(res => console.log('result2', res));
 		result3.then(res => console.log('result3', res));
 		result4.then(res => console.log('result4', res));
+		result6.then(res => console.log('result6', res));
+		await result7.then(res => console.log('result7', res));
 
-		expect(Date.now() - current).toBeGreaterThanOrEqual(2500);
+		expect(Date.now() - current).toBeGreaterThanOrEqual(3500);
 	}, 10000);
+
+	it('single prev', async () => {
+		const Root = new APIRequest('http://localhost:3000');
+		Root.response.use(val => {
+			console.log('use');
+			return Promise.resolve(val.data);
+		});
+		const api = () =>
+			Root.get('/single/delay', {
+				single: true,
+				singleType: APIRequest.Single.PREV,
+			});
+		const result1 = api();
+		delay(500);
+		expect(() => api()).toThrowError('[Single#Prev] The previous request has not been completed');
+		const res = await result1;
+		console.log(res);
+		delay(500);
+		const result2 = api();
+		const res2 = await result2;
+		console.log(res2);
+	});
+
+	it('single next', () => {
+		const Root = new APIRequest('http://localhost:3000');
+		Root.response.use(val => {
+			console.log('use');
+			return Promise.resolve(val.data);
+		});
+		const api = () =>
+			Root.get('/single/delay', {
+				single: true,
+				singleType: APIRequest.Single.NEXT,
+			});
+		api();
+		delay(500);
+		const result1 = api();
+		// expect(() => result1.catch(err => err)).toThrowError();
+		const res = result1;
+		console.log(res);
+	});
 });
