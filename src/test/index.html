@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="../../dist/request.min.js"></script>
+</head>
+
+<body>
+    <script>
+        console.log(APIRequest);
+        const request = APIRequest.APIRequest;
+        const Root = new request('http://localhost:3000');
+        const api = () => Root.get('/cache', {
+            cache: true,
+            cacheTime: 2000
+        });
+        api().then(res => {
+            console.log(res);
+        })
+    </script>
+</body>
+
+</html>

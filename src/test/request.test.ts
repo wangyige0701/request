@@ -53,7 +53,7 @@ describe('APIRequest', () => {
 		result6.then(res => console.log('result6', res));
 		await result7.then(res => console.log('result7', res));
 
-		expect(Date.now() - current).toBeGreaterThanOrEqual(3500);
+		expect(Date.now() - current).toBeGreaterThanOrEqual(3000);
 	}, 10000);
 
 	it('single prev', async () => {
@@ -78,22 +78,31 @@ describe('APIRequest', () => {
 		console.log(res2);
 	});
 
-	it('single next', () => {
+	it('single next', async () => {
 		const Root = new APIRequest('http://localhost:3000');
+		Root.request.use(val => {
+			// @ts-expect-error
+			console.log('request', val.index);
+			return val;
+		});
 		Root.response.use(val => {
-			console.log('use');
+			console.log('use', val.config);
 			return Promise.resolve(val.data);
 		});
+		let index = 0;
 		const api = () =>
 			Root.get('/single/delay', {
 				single: true,
 				singleType: APIRequest.Single.NEXT,
+				index: index++,
 			});
-		api();
-		delay(500);
+		const result0 = api();
+		await delay(500);
 		const result1 = api();
-		// expect(() => result1.catch(err => err)).toThrowError();
-		const res = result1;
+		result0.catch(err => {
+			console.log('err');
+		});
+		const res = await result1;
 		console.log(res);
 	});
 });

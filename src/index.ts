@@ -1,11 +1,18 @@
-import { Fn, isString } from '@wang-yige/utils';
-import { Axios, type InternalAxiosRequestConfig, type AxiosResponse, AxiosInterceptorManager } from 'axios';
+import { Fn, isDef, isString, ParallelTask } from '@wang-yige/utils';
+import {
+	Axios,
+	type InternalAxiosRequestConfig,
+	type AxiosResponse,
+	type AxiosRequestHeaders,
+	AxiosInterceptorManager,
+} from 'axios';
 import type {
 	RequestConfig,
 	InterceptRequestConfig,
 	InterceptResponseConfig,
 	RequestConfigWithAbort,
 	AbortPromise,
+	InitialConfig,
 } from './config';
 import { CacheController, ResponseCache } from './utils/cache';
 import { SingleController, SingleType } from './utils/single';
@@ -14,8 +21,12 @@ export class APIRequest {
 	/** The type of single */
 	static Single = SingleType;
 
+	#userAgent?: string = void 0;
+	#domains?: string | string[] = void 0;
+	#maximum: number = 5;
+
 	#axios: Axios;
-	#userAgent: string = '';
+	#pipeline: ParallelTask;
 	#requestInterceptor: {
 		onFulfilled: (
 			value: InternalAxiosRequestConfig<any>,
@@ -28,21 +39,23 @@ export class APIRequest {
 	#singleController: SingleController;
 	// ======================
 
-	constructor(baseURL: string) {
+	constructor(baseURL: string, config?: InitialConfig) {
 		if (!isString(baseURL)) {
 			throw new Error(`APIRequest: baseURL must be a string`);
 		}
+		const { userAgent, maximum = 5 } = config || {};
+		this.#userAgent = isDef(userAgent) ? String(userAgent) : void 0;
+		this.#pipeline = new ParallelTask(Math.max(1, +maximum || 5));
+
 		this.#axios = new Axios({ baseURL });
 		this.#cacheController = new CacheController(this.#axios);
-		this.#singleController = new SingleController(this.#axios);
+		this.#singleController = new SingleController(this.#axios, this.#pipeline);
 
 		this.#requestInterceptor = {
 			onFulfilled: (config: InterceptRequestConfig) => {
-				const { headers } = config;
+				const { headers = <AxiosRequestHeaders>{} } = config;
 				this.#cacheController.request(config);
-				if (!this.#userAgent) {
-					delete headers?.['User-Agent'];
-				} else if (headers) {
+				if (this.#userAgent && headers) {
 					headers['User-Agent'] = this.#userAgent;
 				}
 				return config;
@@ -115,6 +128,6 @@ export class APIRequest {
 	}
 
 	#proxy<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort = {}) {
-		return this.#singleController.request<R>(fn, url, config) as AbortPromise<R>;
+		return this.#singleController.request<R>(fn, url, { ...config }) as AbortPromise<R>;
 	}
 }

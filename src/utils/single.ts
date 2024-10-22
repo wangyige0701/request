@@ -1,5 +1,5 @@
 import type { Axios } from 'axios';
-import { type Fn, type PromiseResolve, createPromise, upperCase, ParallelTask } from '@wang-yige/utils';
+import { type Fn, createPromise, upperCase, ParallelTask } from '@wang-yige/utils';
 import type { AbortPromise, RequestConfig, RequestConfigWithAbort } from '@/config';
 import { Methods } from './methods';
 import { createAbortController } from './abort';
@@ -23,12 +23,14 @@ export enum SingleType {
 
 export class SingleController {
 	#axios: Axios;
+	#pipeline: ParallelTask;
 	#singleTasks: Map<string, ParallelTask> = new Map();
 	#singleNext: Map<string, Fn> = new Map();
 	#singlePrev: Set<string> = new Set();
 
-	constructor(axios: Axios) {
+	constructor(axios: Axios, pipeline: ParallelTask) {
 		this.#axios = axios;
+		this.#pipeline = pipeline;
 	}
 
 	request<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort) {
@@ -47,12 +49,12 @@ export class SingleController {
 				const task = async () => {
 					await this.#send<R>(fn, config).then(resolve, reject);
 				};
-				tasks.add(task);
+				const useTask = tasks.add(task);
 				promise.abort = promise.cancel = () => {
+					useTask.cancel();
 					if (config.__abort) {
-						return config.__abort();
+						config.__abort();
 					}
-					return tasks.cancel(task);
 				};
 				return promise;
 			}
@@ -82,17 +84,23 @@ export class SingleController {
 		return this.#send<R>(fn, config);
 	}
 
+	#singleKey(url: string, config: RequestConfig) {
+		const { method = Methods.GET } = config;
+		const baseURL = (this.#axios.defaults.baseURL || '').replace(/^(.*[^\/])\/*$/, '$1');
+		const path = (url || '').replace(/^\/*([^\/].*)$/, '$1');
+		return `//${upperCase(method)}::${baseURL}/${path}`;
+	}
+
 	#send<R>(fn: Fn<[config: RequestConfig], Promise<any>>, config: RequestConfigWithAbort = {}) {
 		const abort = createAbortController(config);
 		config.__abort = abort;
-		const promise = fn(config) as AbortPromise<R>;
-		promise.abort = abort;
-		promise.cancel = abort;
+		const promise = this.#pipeline.add(fn, config) as unknown as AbortPromise<R>;
+		delete (promise as Promise<void> & { index?: number }).index;
+		const _cancelTask = promise.cancel;
+		promise.abort = promise.cancel = () => {
+			_cancelTask();
+			abort();
+		};
 		return promise;
-	}
-
-	#singleKey(url: string, config: RequestConfig) {
-		const { method = Methods.GET } = config;
-		return `//${upperCase(method)}::${this.#axios.defaults.baseURL}${url}`;
 	}
 }

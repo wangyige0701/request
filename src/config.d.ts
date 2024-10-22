@@ -2,6 +2,23 @@ import type { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import type { Fn } from '@wang-yige/utils';
 import type { SingleType } from './utils/single';
 
+export interface InitialConfig {
+	/**
+	 * Then User-Agent header config, default is void.
+	 */
+	userAgent?: string;
+	/**
+	 * The domains that can be retried, if set it,
+	 * the retry count will be the max of the `domains`'s length and `retryCount`.
+	 */
+	domains?: string[];
+	/**
+	 * Max number to sync request.
+	 * - default `5`
+	 */
+	maximum?: number;
+}
+
 export interface CustomConfig {
 	/**
 	 * The same url request is only single at a time.
@@ -39,18 +56,13 @@ export interface CustomConfig {
 	 */
 	retryDelay?: number;
 	/**
-	 * The domains that can be retried, if set it,
-	 * the retry count will be the max of the `domains`'s length and `retryCount`.
+	 * Whether use domains to retry.
+	 * - default `true`
 	 */
-	domains?: string[];
-	/**
-	 * Max number to sync request.
-	 * - default `5`
-	 */
-	maximum?: number;
+	useDomains?: boolean;
 }
 
-export type RequestConfig<D = any> = AxiosRequestConfig<D> & CustomConfig;
+export type RequestConfig<D = any> = AxiosRequestConfig<D> & CustomConfig & { [K in string]: any };
 
 export type RequestConfigWithAbort = RequestConfig & { __abort?: Fn };
 
