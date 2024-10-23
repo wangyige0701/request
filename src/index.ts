@@ -1,10 +1,10 @@
-import { Fn, isDef, isString, ParallelTask } from '@wang-yige/utils';
-import {
-	Axios,
+import { Fn, isDef, ParallelTask } from '@wang-yige/utils';
+import axios, {
+	type Axios,
 	type InternalAxiosRequestConfig,
 	type AxiosResponse,
 	type AxiosRequestHeaders,
-	AxiosInterceptorManager,
+	type AxiosInterceptorManager,
 } from 'axios';
 import type {
 	RequestConfig,
@@ -39,15 +39,12 @@ export class APIRequest {
 	#singleController: SingleController;
 	// ======================
 
-	constructor(baseURL: string, config?: InitialConfig) {
-		if (!isString(baseURL)) {
-			throw new Error(`APIRequest: baseURL must be a string`);
-		}
+	constructor(baseURL?: string, config?: InitialConfig) {
 		const { userAgent, maximum = 5 } = config || {};
 		this.#userAgent = isDef(userAgent) ? String(userAgent) : void 0;
 		this.#pipeline = new ParallelTask(Math.max(1, +maximum || 5));
 
-		this.#axios = new Axios({ baseURL });
+		this.#axios = axios.create({ baseURL });
 		this.#cacheController = new CacheController(this.#axios);
 		this.#singleController = new SingleController(this.#axios, this.#pipeline);
 

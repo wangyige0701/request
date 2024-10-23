@@ -11,10 +11,6 @@ let cache = 0;
 router.get('/cache', ctx => {
 	console.log('url ===> ', ctx.url, ' index ===> ', ++cache);
 	ctx.header['content-type'] = 'application/json';
-	ctx.header['Access-Control-Allow-Origin'] = '*';
-	ctx.header['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
-	ctx.header['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
-	console.log(ctx.header);
 	ctx.body = createHash('md5').update(String(Date.now())).digest('hex');
 });
 
@@ -30,6 +26,17 @@ let single = 0;
 router.get('/single/delay', async ctx => {
 	console.log('url ===> ', ctx.url, ' index ===> ', ++single);
 	await delay(2000);
+	ctx.header['content-type'] = 'application/json';
+	ctx.body = createHash('md5').update(String(Date.now())).digest('hex');
+});
+
+let retry = 0;
+router.get('/retry', async ctx => {
+	const isError = Math.random() > 0.5;
+	console.log('url ===> ', ctx.url, ' index ===> ', ++retry, ' error ===> ', isError);
+	if (isError) {
+		ctx.status = 500;
+	}
 	ctx.header['content-type'] = 'application/json';
 	ctx.body = createHash('md5').update(String(Date.now())).digest('hex');
 });

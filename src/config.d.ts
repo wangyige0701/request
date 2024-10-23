@@ -5,6 +5,7 @@ import type { SingleType } from './utils/single';
 export interface InitialConfig {
 	/**
 	 * Then User-Agent header config, default is void.
+	 * Used in node environment.
 	 */
 	userAgent?: string;
 	/**
@@ -53,8 +54,14 @@ export interface CustomConfig {
 	retryCount?: number;
 	/**
 	 * Delay time for retry in miliseconds.
+	 * - default `1000`
 	 */
 	retryDelay?: number;
+	/**
+	 * The status code to retry.
+	 * - default retry when `500`, `404`, `502`
+	 */
+	retryCode?: number | number[];
 	/**
 	 * Whether use domains to retry.
 	 * - default `true`
@@ -76,7 +83,7 @@ export type AbortPromise<T = any> = Promise<T> & {
 	 */
 	abort: Fn;
 	/**
-	 * Abort the request, same as `abort` method.
+	 * alias of `abort` method.
 	 */
 	cancel: Fn;
 };

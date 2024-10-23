@@ -3,6 +3,7 @@ import { type Fn, createPromise, upperCase, ParallelTask } from '@wang-yige/util
 import type { AbortPromise, RequestConfig, RequestConfigWithAbort } from '@/config';
 import { Methods } from './methods';
 import { createAbortController } from './abort';
+import { handleRetry } from './retry';
 
 export enum SingleType {
 	/**
@@ -21,6 +22,9 @@ export enum SingleType {
 	QUEUE = 'queue',
 }
 
+/**
+ * In SingleController also handle pipeline and retry config.
+ */
 export class SingleController {
 	#axios: Axios;
 	#pipeline: ParallelTask;
@@ -84,17 +88,26 @@ export class SingleController {
 		return this.#send<R>(fn, config);
 	}
 
+	static replacePrefixSlash = /^\/*([^\/].*)$/;
+
+	static replaceSuffixSlash = /^(.*[^\/])\/*$/;
+
 	#singleKey(url: string, config: RequestConfig) {
 		const { method = Methods.GET } = config;
-		const baseURL = (this.#axios.defaults.baseURL || '').replace(/^(.*[^\/])\/*$/, '$1');
-		const path = (url || '').replace(/^\/*([^\/].*)$/, '$1');
+		const baseURL = (this.#axios.defaults.baseURL || '').replace(SingleController.replaceSuffixSlash, '$1');
+		const path = (url || '').replace(SingleController.replacePrefixSlash, '$1');
 		return `//${upperCase(method)}::${baseURL}/${path}`;
 	}
 
 	#send<R>(fn: Fn<[config: RequestConfig], Promise<any>>, config: RequestConfigWithAbort = {}) {
 		const abort = createAbortController(config);
 		config.__abort = abort;
-		const promise = this.#pipeline.add(fn, config) as unknown as AbortPromise<R>;
+		// Add to parallel pipeline.
+		const promise = this.#pipeline.add(async config => {
+			// Handle retry config.
+			return await handleRetry(fn, config);
+		}, config) as unknown as AbortPromise<R>;
+		// remove the index property from ParallelPromise.
 		delete (promise as Promise<void> & { index?: number }).index;
 		const _cancelTask = promise.cancel;
 		promise.abort = promise.cancel = () => {

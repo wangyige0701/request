@@ -31,7 +31,7 @@ describe('APIRequest', () => {
 			Root.get('/single/queue', {
 				single: true,
 				singleType: APIRequest.Single.QUEUE,
-				params: { index: i++ },
+				params: { index: ++i },
 			});
 		const current = Date.now();
 		await delay(500);
@@ -103,6 +103,30 @@ describe('APIRequest', () => {
 			console.log('err');
 		});
 		const res = await result1;
+		console.log(res);
+	});
+
+	it('retry', async () => {
+		const Root = new APIRequest('http://localhost:3000');
+		let time = Date.now();
+		Root.request.use(val => {
+			const t = time;
+			time = Date.now();
+			console.log('request, time => ', time - t, 'ms');
+			return val;
+		});
+		Root.response.use(val => {
+			console.log('use');
+			return Promise.resolve(val.data);
+		});
+		const api = () =>
+			Root.get('/retry', {
+				retry: true,
+				retryDelay: 1500,
+				retryCount: 3,
+			});
+		const result = api();
+		const res = await result;
 		console.log(res);
 	});
 });
