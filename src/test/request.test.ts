@@ -112,7 +112,7 @@ describe('APIRequest', () => {
 		Root.request.use(val => {
 			const t = time;
 			time = Date.now();
-			console.log('request, time => ', time - t, 'ms');
+			console.log('request, time => ', time - t, 'ms', 'baseURL => ', val.baseURL);
 			return val;
 		});
 		Root.response.use(val => {
@@ -129,4 +129,30 @@ describe('APIRequest', () => {
 		const res = await result;
 		console.log(res);
 	});
+
+	it('retry by domains', async () => {
+		const Root = new APIRequest('http://localhost:5000', {
+			domains: ['http://localhost:2000', 'http://localhost:3000'],
+		});
+		let time = Date.now();
+		Root.request.use(val => {
+			const t = time;
+			time = Date.now();
+			console.log('request, time => ', time - t, 'ms', 'baseURL => ', val.baseURL);
+			return val;
+		});
+		Root.response.use(val => {
+			console.log('use');
+			return Promise.resolve(val.data);
+		});
+		const api = () =>
+			Root.get('/retry', {
+				retry: true,
+				retryDelay: 1500,
+				retryCount: 5,
+			});
+		const result = api();
+		const res = await result;
+		console.log(res);
+	}, 10000);
 });

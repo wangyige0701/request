@@ -1,4 +1,4 @@
-import { Fn, isDef, ParallelTask } from '@wang-yige/utils';
+import { Fn, isArray, isDef, isString, ParallelTask } from '@wang-yige/utils';
 import axios, {
 	type Axios,
 	type InternalAxiosRequestConfig,
@@ -22,7 +22,7 @@ export class APIRequest {
 	static Single = SingleType;
 
 	#userAgent?: string = void 0;
-	#domains?: string | string[] = void 0;
+	#domains?: string[] = void 0;
 	#maximum: number = 5;
 
 	#axios: Axios;
@@ -40,13 +40,21 @@ export class APIRequest {
 	// ======================
 
 	constructor(baseURL?: string, config?: InitialConfig) {
-		const { userAgent, maximum = 5 } = config || {};
+		const { userAgent, maximum = 5, domains } = config || {};
 		this.#userAgent = isDef(userAgent) ? String(userAgent) : void 0;
-		this.#pipeline = new ParallelTask(Math.max(1, +maximum || 5));
+		this.#maximum = Math.max(1, +maximum || 5);
+		this.#pipeline = new ParallelTask(this.#maximum);
+		if (domains) {
+			if (isString(domains)) {
+				this.#domains = [domains];
+			} else if (isArray(domains)) {
+				this.#domains = domains;
+			}
+		}
 
 		this.#axios = axios.create({ baseURL });
 		this.#cacheController = new CacheController(this.#axios);
-		this.#singleController = new SingleController(this.#axios, this.#pipeline);
+		this.#singleController = new SingleController(this.#axios, this.#pipeline, this);
 
 		this.#requestInterceptor = {
 			onFulfilled: (config: InterceptRequestConfig) => {
@@ -77,6 +85,10 @@ export class APIRequest {
 				return Promise.reject(err);
 			},
 		);
+	}
+
+	get domains() {
+		return this.#domains;
 	}
 
 	get request() {
@@ -122,6 +134,13 @@ export class APIRequest {
 
 	userAgent(str: string) {
 		this.#userAgent = str;
+	}
+
+	/**
+	 * Change the maximum number of parallel requests pipeline.
+	 */
+	pipelineMaximum(maximum: number) {
+		this.#pipeline.changeMaxParallelCount(Math.max(1, +maximum || 5));
 	}
 
 	#proxy<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort = {}) {

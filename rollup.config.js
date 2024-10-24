@@ -22,7 +22,7 @@ export default [
 		const config = {
 			input,
 			output: {
-				name: 'APIRequest',
+				name: '$API',
 				file: 'dist/request.min.js',
 				format: 'iife',
 				globals: {

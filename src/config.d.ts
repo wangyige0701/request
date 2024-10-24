@@ -58,10 +58,16 @@ export interface CustomConfig {
 	 */
 	retryDelay?: number;
 	/**
-	 * The status code to retry.
+	 * The axios error code to retry.
+	 * - default ['ECONNABORTED', 'ERR_NETWORK, 'ETIMEDOUT', 'ECONNREFUSED']
+	 * 'ECONNREFUSED' is only available in nodejs.
+	 */
+	retryErrorCode?: string | string[];
+	/**
+	 * The status code to retry, only match when response err.code equals 'ERR_BAD_RESPONSE'.
 	 * - default retry when `500`, `404`, `502`
 	 */
-	retryCode?: number | number[];
+	retryResponseCode?: number | number[];
 	/**
 	 * Whether use domains to retry.
 	 * - default `true`

@@ -1,6 +1,7 @@
 import type { Axios } from 'axios';
 import { type Fn, createPromise, upperCase, ParallelTask } from '@wang-yige/utils';
 import type { AbortPromise, RequestConfig, RequestConfigWithAbort } from '@/config';
+import type { APIRequest } from '..';
 import { Methods } from './methods';
 import { createAbortController } from './abort';
 import { handleRetry } from './retry';
@@ -31,10 +32,12 @@ export class SingleController {
 	#singleTasks: Map<string, ParallelTask> = new Map();
 	#singleNext: Map<string, Fn> = new Map();
 	#singlePrev: Set<string> = new Set();
+	#API: APIRequest;
 
-	constructor(axios: Axios, pipeline: ParallelTask) {
+	constructor(axios: Axios, pipeline: ParallelTask, _this: APIRequest) {
 		this.#axios = axios;
 		this.#pipeline = pipeline;
+		this.#API = _this;
 	}
 
 	request<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort) {
@@ -105,7 +108,7 @@ export class SingleController {
 		// Add to parallel pipeline.
 		const promise = this.#pipeline.add(async config => {
 			// Handle retry config.
-			return await handleRetry(fn, config);
+			return await handleRetry(fn, config, this.#API.domains);
 		}, config) as unknown as AbortPromise<R>;
 		// remove the index property from ParallelPromise.
 		delete (promise as Promise<void> & { index?: number }).index;

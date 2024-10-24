@@ -1,31 +1,71 @@
-import axios from 'axios';
-import { delay, type Fn, isNumber } from '@wang-yige/utils';
+import axios, { AxiosError } from 'axios';
+import { delay, type Fn, isDef, isNumber, isString } from '@wang-yige/utils';
 import type { RequestConfig, RequestConfigWithAbort } from '@/config';
 
-const DefaultRetryCodes = [500, 404, 502] as const;
+const DefaultRetryErrorCodes = [AxiosError.ECONNABORTED, AxiosError.ERR_NETWORK, AxiosError.ETIMEDOUT, 'ECONNREFUSED'];
+const DefaultResponseCodes = [500, 404, 502];
 
 export function handleRetry<T extends Promise<any>>(
 	fn: Fn<[config: RequestConfig], T>,
 	config: RequestConfigWithAbort,
+	domains: string[] | undefined,
 ): T {
 	const { retry = true } = config;
 	if (retry !== true) {
 		return fn(config);
 	}
-	const { retryCode = DefaultRetryCodes, retryCount = 5, retryDelay = 1000 } = config;
-	let codes = retryCode;
-	if (isNumber(codes)) {
-		codes = [codes];
+	const {
+		retryErrorCode = DefaultRetryErrorCodes,
+		retryResponseCode = DefaultResponseCodes,
+		retryCount = 5,
+		retryDelay = 1000,
+	} = config;
+	let errCode = retryErrorCode;
+	if (isString(errCode)) {
+		errCode = [errCode];
+	}
+	let responseCodes = retryResponseCode;
+	if (isNumber(responseCodes)) {
+		responseCodes = [responseCodes];
 	}
 	const time = Math.max(+retryDelay || 1000, 0);
-	const count = Math.max(+retryCount || 5, 1);
+	let count = Math.max(+retryCount || 5, 1);
+	let changeDomain = false;
+	let domainIndex = -1;
+	const usedDomains = [...(domains || [])];
+	if (usedDomains && usedDomains.length) {
+		changeDomain = true;
+		count = Math.max(usedDomains.length, count);
+	}
 	const useRetry = async (n: number = 0): Promise<any> => {
-		return fn(config).catch(err => {
+		let requestConfig = config;
+		if (changeDomain) {
+			const index = domainIndex++;
+			if (domainIndex >= usedDomains.length) {
+				domainIndex = -1;
+			}
+			if (index >= 0) {
+				const target = usedDomains![index];
+				requestConfig = {
+					...config,
+					...(isDef(target) ? { baseURL: usedDomains![index] } : {}),
+				};
+			}
+		}
+		return fn(requestConfig).catch(err => {
 			if (axios.isCancel(err)) {
 				return Promise.reject(err) as T;
 			}
-			const code = err?.response?.status;
-			if (codes.includes(code) && n < count) {
+			let nextRetry = false;
+			if (errCode.includes(err.code)) {
+				nextRetry = true;
+			} else if (err.code === AxiosError.ERR_BAD_RESPONSE) {
+				const code = err?.response?.status;
+				if (responseCodes.includes(code) && n < count) {
+					nextRetry = true;
+				}
+			}
+			if (nextRetry) {
 				return delay(time).then(() => useRetry(n + 1)) as T;
 			}
 			return Promise.reject(err) as T;
