@@ -44,7 +44,7 @@ export interface CustomConfig {
 	cacheTime?: number;
 	/**
 	 * Retry the request if failed.
-	 * - default `true`
+	 * - default `false`
 	 */
 	retry?: boolean;
 	/**

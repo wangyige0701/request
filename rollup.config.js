@@ -3,10 +3,24 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from 'rollup-plugin-typescript2';
 import del from 'rollup-plugin-delete';
 import terser from '@rollup/plugin-terser';
+import esbuild from 'rollup-plugin-esbuild';
+import dts from 'rollup-plugin-dts';
 
 const enteries = ['src/index.ts'];
 
 const plugins = [
+	resolve({
+		preferBuiltins: true,
+		rootDir: 'src',
+	}),
+	typescript(),
+	commonjs(),
+	esbuild({
+		target: 'node14',
+	}),
+];
+
+const browserPlugins = [
 	resolve({
 		rootDir: 'src',
 		browser: true,
@@ -21,28 +35,55 @@ export default [
 		/** @type {import('rollup').RollupOptions} */
 		const config = {
 			input,
+			output: [
+				{
+					file: input.replace('src/', 'dist/').replace('.ts', '.mjs'),
+					format: 'esm',
+				},
+				{
+					file: input.replace('src/', 'dist/').replace('.ts', '.cjs'),
+					format: 'cjs',
+				},
+			],
+			plugins: [del({ targets: ['dist/*'] }), ...plugins],
+		};
+		return config;
+	}),
+	...enteries.map(input => {
+		/** @type {import('rollup').RollupOptions} */
+		const config = {
+			input,
+			output: [
+				{
+					file: input.replace('src/', 'dist/').replace('.ts', '.d.mts'),
+					format: 'esm',
+				},
+				{
+					file: input.replace('src/', 'dist/').replace('.ts', '.d.cts'),
+					format: 'cjs',
+				},
+				{
+					file: input.replace('src/', 'dist/').replace('.ts', '.d.ts'),
+					format: 'esm',
+				},
+			],
+			external: [],
+			plugins: [typescript(), dts({ respectExternal: true })],
+		};
+		return config;
+	}),
+	...enteries.map(input => {
+		/** @type {import('rollup').RollupOptions} */
+		const config = {
+			input,
 			output: {
 				name: '$API',
 				file: 'dist/request.min.js',
 				format: 'iife',
-				globals: {
-					util: 'util',
-					stream: 'stream',
-					path: 'path',
-					http: 'http',
-					https: 'https',
-					url: 'url',
-					fs: 'fs',
-					assert: 'assert',
-					tty: 'tty',
-					zlib: 'zlib',
-					events: 'events',
-				},
 			},
 			external: ['util', 'stream', 'path', 'http', 'https', 'url', 'fs', 'assert', 'tty', 'zlib', 'events'],
 			plugins: [
-				del({ targets: ['dist/*'] }),
-				...plugins,
+				...browserPlugins,
 				terser({
 					module: false,
 					compress: {

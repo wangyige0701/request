@@ -10,7 +10,7 @@ export function handleRetry<T extends Promise<any>>(
 	config: RequestConfigWithAbort,
 	domains: string[] | undefined,
 ): T {
-	const { retry = true } = config;
+	const { retry = false } = config;
 	if (retry !== true) {
 		return fn(config);
 	}
@@ -53,7 +53,8 @@ export function handleRetry<T extends Promise<any>>(
 			}
 		}
 		return fn(requestConfig).catch(err => {
-			if (axios.isCancel(err)) {
+			// cancel request or max retry throw directly
+			if (axios.isCancel(err) || n >= count) {
 				return Promise.reject(err) as T;
 			}
 			let nextRetry = false;
@@ -61,7 +62,7 @@ export function handleRetry<T extends Promise<any>>(
 				nextRetry = true;
 			} else if (err.code === AxiosError.ERR_BAD_RESPONSE) {
 				const code = err?.response?.status;
-				if (responseCodes.includes(code) && n < count) {
+				if (responseCodes.includes(code)) {
 					nextRetry = true;
 				}
 			}

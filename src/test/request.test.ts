@@ -155,4 +155,18 @@ describe('APIRequest', () => {
 		const res = await result;
 		console.log(res);
 	}, 10000);
+
+	it('retry time', async () => {
+		const Root = new APIRequest('http://localhost');
+		Root.request.use(val => {
+			console.log('request');
+			return val;
+		});
+		const api = () =>
+			Root.get('/single/delay', {
+				retry: true,
+			});
+		const result = api();
+		await result;
+	}, 20000);
 });
