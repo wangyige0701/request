@@ -85,14 +85,14 @@ export default [
 			external: ['util', 'stream', 'path', 'http', 'https', 'url', 'fs', 'assert', 'tty', 'zlib', 'events'],
 			plugins: [
 				...browserPlugins,
-				// terser({
-				// 	module: false,
-				// 	compress: {
-				// 		ecma: 2015,
-				// 		pure_getters: true,
-				// 	},
-				// 	safari10: true,
-				// }),
+				terser({
+					module: false,
+					compress: {
+						ecma: 2015,
+						pure_getters: true,
+					},
+					safari10: true,
+				}),
 			],
 		};
 		return config;
