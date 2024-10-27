@@ -1,10 +1,11 @@
-import { Fn, isArray, isDef, isString, ParallelTask } from '@wang-yige/utils';
+import { Fn, isDef, ParallelTask, toArray } from '@wang-yige/utils';
 import axios, {
 	type Axios,
 	type InternalAxiosRequestConfig,
 	type AxiosResponse,
 	type AxiosRequestHeaders,
 	type AxiosInterceptorManager,
+	type CreateAxiosDefaults,
 } from 'axios';
 import type {
 	RequestConfig,
@@ -39,20 +40,20 @@ export class APIRequest {
 	#singleController: SingleController;
 	// ======================
 
-	constructor(baseURL?: string, config?: InitialConfig) {
+	constructor(baseURL?: string, config?: InitialConfig & Omit<CreateAxiosDefaults, 'baseURL'>) {
 		const { userAgent, maximum = 5, domains } = config || {};
 		this.#userAgent = isDef(userAgent) ? String(userAgent) : void 0;
 		this.#maximum = Math.max(1, +maximum || 5);
 		this.#pipeline = new ParallelTask(this.#maximum);
 		if (domains) {
-			if (isString(domains)) {
-				this.#domains = [domains];
-			} else if (isArray(domains)) {
-				this.#domains = domains;
-			}
+			this.#domains = toArray(domains);
 		}
 
-		this.#axios = axios.create({ baseURL });
+		const defaultConfig = { ...config };
+		delete defaultConfig.userAgent;
+		delete defaultConfig.domains;
+		delete defaultConfig.maximum;
+		this.#axios = axios.create({ ...defaultConfig, baseURL });
 		this.#cacheController = new CacheController(this.#axios);
 		this.#singleController = new SingleController(this.#axios, this.#pipeline, this);
 

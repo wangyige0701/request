@@ -78,7 +78,7 @@ export class SingleController {
 			}
 			if (singleType === SingleType.PREV) {
 				if (this.#singlePrev.has(KEY)) {
-					throw new Error('[Single#Prev] The previous request has not been completed');
+					throw new Error('The previous request has not been completed');
 				}
 				this.#singlePrev.add(KEY);
 				const promise = this.#send<R>(fn, config);

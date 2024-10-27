@@ -1,9 +1,10 @@
 import axios, { AxiosError } from 'axios';
-import { delay, type Fn, isDef, isNumber, isString } from '@wang-yige/utils';
+import { type Fn, delay, isDef, toArray } from '@wang-yige/utils';
 import type { RequestConfig, RequestConfigWithAbort } from '@/config';
 
 const DefaultRetryErrorCodes = [AxiosError.ECONNABORTED, AxiosError.ERR_NETWORK, AxiosError.ETIMEDOUT, 'ECONNREFUSED'];
 const DefaultResponseCodes = [500, 404, 502];
+const DefaultRequestCodes = [404];
 
 export function handleRetry<T extends Promise<any>>(
 	fn: Fn<[config: RequestConfig], T>,
@@ -17,17 +18,13 @@ export function handleRetry<T extends Promise<any>>(
 	const {
 		retryErrorCode = DefaultRetryErrorCodes,
 		retryResponseCode = DefaultResponseCodes,
+		retryRequestCode = DefaultRequestCodes,
 		retryCount = 5,
 		retryDelay = 1000,
 	} = config;
-	let errCode = retryErrorCode;
-	if (isString(errCode)) {
-		errCode = [errCode];
-	}
-	let responseCodes = retryResponseCode;
-	if (isNumber(responseCodes)) {
-		responseCodes = [responseCodes];
-	}
+	const errCode = toArray(retryErrorCode);
+	const responseCodes = toArray(retryResponseCode);
+	const requestCodes = toArray(retryRequestCode);
 	const time = Math.max(+retryDelay || 1000, 0);
 	let count = Math.max(+retryCount || 5, 1);
 	let changeDomain = false;
@@ -57,16 +54,11 @@ export function handleRetry<T extends Promise<any>>(
 			if (axios.isCancel(err) || n >= count) {
 				return Promise.reject(err) as T;
 			}
-			let nextRetry = false;
-			if (errCode.includes(err.code)) {
-				nextRetry = true;
-			} else if (err.code === AxiosError.ERR_BAD_RESPONSE) {
-				const code = err?.response?.status;
-				if (responseCodes.includes(code)) {
-					nextRetry = true;
-				}
-			}
-			if (nextRetry) {
+			const needRetry =
+				errCode.includes(err.code) ||
+				(err.code === AxiosError.ERR_BAD_RESPONSE && responseCodes.includes(err?.status)) ||
+				(err.code === AxiosError.ERR_BAD_REQUEST && requestCodes.includes(err?.status));
+			if (needRetry) {
 				return delay(time).then(() => useRetry(n + 1)) as T;
 			}
 			return Promise.reject(err) as T;
