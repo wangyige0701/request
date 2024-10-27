@@ -157,13 +157,13 @@ describe('APIRequest', () => {
 	}, 10000);
 
 	it('retry time', async () => {
-		const Root = new APIRequest('http://localhost');
+		const Root = new APIRequest('https://jsonplaceholder.typicode.com');
 		Root.request.use(val => {
 			console.log('request');
 			return val;
 		});
 		const api = () =>
-			Root.get('/single/delay', {
+			Root.get('/error', {
 				retry: true,
 			});
 		const result = api();

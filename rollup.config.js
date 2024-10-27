@@ -45,6 +45,7 @@ export default [
 					format: 'cjs',
 				},
 			],
+			external: ['axios', '@wang-yige/utils'],
 			plugins: [del({ targets: ['dist/*'] }), ...plugins],
 		};
 		return config;
@@ -67,8 +68,8 @@ export default [
 					format: 'esm',
 				},
 			],
-			external: [],
-			plugins: [typescript(), dts({ respectExternal: true })],
+			external: ['axios', '@wang-yige/utils'],
+			plugins: [typescript(), dts({ respectExternal: true, tsconfig: './tsconfig.json' })],
 		};
 		return config;
 	}),
@@ -84,14 +85,14 @@ export default [
 			external: ['util', 'stream', 'path', 'http', 'https', 'url', 'fs', 'assert', 'tty', 'zlib', 'events'],
 			plugins: [
 				...browserPlugins,
-				terser({
-					module: false,
-					compress: {
-						ecma: 2015,
-						pure_getters: true,
-					},
-					safari10: true,
-				}),
+				// terser({
+				// 	module: false,
+				// 	compress: {
+				// 		ecma: 2015,
+				// 		pure_getters: true,
+				// 	},
+				// 	safari10: true,
+				// }),
 			],
 		};
 		return config;

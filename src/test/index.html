@@ -9,17 +9,28 @@
 </head>
 
 <body>
-    <script>
-        console.log(APIRequest);
-        const request = APIRequest.APIRequest;
-        const Root = new request('http://localhost:3000');
-        const api = () => Root.get('/cache', {
-            cache: true,
-            cacheTime: 2000
-        });
-        api().then(res => {
+    <script type="module">
+        import { single } from './js/single.js';
+
+        // single(10).then(res => {
+        //     console.log(res);
+        // });
+    </script>
+    <script type="module">
+        import { cache } from './js/cache.js';
+
+        // cache(10).then(res => {
+        //     console.log(res);
+        // });
+    </script>
+    <script type="module">
+        import { error } from './js/error.js';
+
+        error().then(res => {
             console.log(res);
-        })
+        }).catch(err => {
+            console.log(err);
+        });
     </script>
 </body>
 
