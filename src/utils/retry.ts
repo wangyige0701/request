@@ -21,6 +21,7 @@ export function handleRetry<T extends Promise<any>>(
 		retryRequestCode = DefaultRequestCodes,
 		retryCount = 5,
 		retryDelay = 1000,
+		useDomains = true,
 	} = config;
 	const errCode = toArray(retryErrorCode);
 	const responseCodes = toArray(retryResponseCode);
@@ -29,23 +30,24 @@ export function handleRetry<T extends Promise<any>>(
 	let count = Math.max(+retryCount || 5, 1);
 	let changeDomain = false;
 	let domainIndex = -1;
-	const usedDomains = [...(domains || [])];
-	if (usedDomains && usedDomains.length) {
+	let domainList: string[];
+	if (useDomains && domains && domains.length) {
 		changeDomain = true;
-		count = Math.max(usedDomains.length, count);
+		domainList = [...(domains || [])];
+		count = Math.max(domainList.length, count);
 	}
 	const useRetry = async (n: number = 0): Promise<any> => {
 		let requestConfig = config;
 		if (changeDomain) {
 			const index = domainIndex++;
-			if (domainIndex >= usedDomains.length) {
+			if (domainIndex >= domainList.length) {
 				domainIndex = -1;
 			}
 			if (index >= 0) {
-				const target = usedDomains![index];
+				const target = domainList[index];
 				requestConfig = {
 					...config,
-					...(isDef(target) ? { baseURL: usedDomains![index] } : {}),
+					...(isDef(target) ? { baseURL: domainList[index] } : {}),
 				};
 			}
 		}
