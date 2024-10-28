@@ -69,7 +69,7 @@ describe('APIRequest', () => {
 			});
 		const result1 = api();
 		delay(500);
-		expect(() => api()).toThrowError('[Single#Prev] The previous request has not been completed');
+		expect(() => api()).toThrowError('The previous request has not been completed');
 		const res = await result1;
 		console.log(res);
 		delay(500);
@@ -162,11 +162,36 @@ describe('APIRequest', () => {
 			console.log('request');
 			return val;
 		});
+		Root.response.use(val => {
+			console.log('use ', val.status);
+			return Promise.resolve(val.data);
+		});
 		const api = () =>
 			Root.get('/error', {
 				retry: true,
 			});
 		const result = api();
 		await result;
+	}, 20000);
+
+	it('limit request', async () => {
+		const Root = new APIRequest('https://jsonplaceholder.typicode.com');
+		Root.request.use(val => {
+			console.log('request');
+			return val;
+		});
+		Root.response.use(val => {
+			console.log('use');
+			return Promise.resolve(val.data);
+		});
+		const api = () => {
+			return Root.get('/todos/1');
+		};
+		const result = [];
+		for (let i = 0; i < 60; i++) {
+			result.push(api());
+		}
+		const value = await Promise.all(result);
+		console.log(value);
 	}, 20000);
 });

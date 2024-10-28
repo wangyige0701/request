@@ -18,6 +18,12 @@ export interface InitialConfig {
 	 * - default `5`
 	 */
 	maximum?: number;
+	/**
+	 * Max number to trigger request by current instance in a second,
+	 * if it is zero or negative, it will not check.
+	 * - default `100`
+	 */
+	triggerLimit?: number;
 }
 
 export interface CustomConfig {

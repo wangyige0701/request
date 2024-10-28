@@ -1,4 +1,4 @@
-import { Fn, isDef, ParallelTask, toArray } from '@wang-yige/utils';
+import { checkFrequency, Fn, isDef, ParallelTask, toArray } from '@wang-yige/utils';
 import axios, {
 	type Axios,
 	type InternalAxiosRequestConfig,
@@ -22,12 +22,15 @@ export class APIRequest {
 	/** The type of single */
 	static Single = SingleType;
 
+	static frequencyOptions = { range: 1000, maximum: 20 };
+
 	#userAgent?: string = void 0;
 	#domains?: string[] = void 0;
 	#maximum: number = 5;
 
 	#axios: Axios;
 	#pipeline: ParallelTask;
+	#frequency: Fn<[number], any> | undefined = void 0;
 	#requestInterceptor: {
 		onFulfilled: (
 			value: InternalAxiosRequestConfig<any>,
@@ -41,10 +44,19 @@ export class APIRequest {
 	// ======================
 
 	constructor(baseURL?: string, config?: InitialConfig & Omit<CreateAxiosDefaults, 'baseURL'>) {
-		const { userAgent, maximum = 5, domains } = config || {};
+		const { userAgent, maximum = 5, domains, triggerLimit = 100 } = config || {};
 		this.#userAgent = isDef(userAgent) ? String(userAgent) : void 0;
 		this.#maximum = Math.max(1, +maximum || 5);
 		this.#pipeline = new ParallelTask(this.#maximum);
+		const _limit = +triggerLimit || 0;
+		if (_limit > 0) {
+			this.#frequency = checkFrequency({ range: 1000, maximum: _limit }, () => {
+				throw new Error(
+					'The request frequency is over the limit in one second. \n' +
+						"It's maybe an infinite loop, and if you want to continue, you can set the `triggerLimit` to a bigger number or zero.",
+				);
+			});
+		}
 		if (domains) {
 			this.#domains = toArray(domains);
 		}
@@ -145,6 +157,9 @@ export class APIRequest {
 	}
 
 	#proxy<R>(fn: Fn<[config: RequestConfig], Promise<any>>, url: string, config: RequestConfigWithAbort = {}) {
+		if (this.#frequency) {
+			this.#frequency(1);
+		}
 		return this.#singleController.request<R>(fn, url, { ...config }) as AbortPromise<R>;
 	}
 }
