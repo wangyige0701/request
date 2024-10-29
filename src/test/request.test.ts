@@ -184,14 +184,17 @@ describe('APIRequest', () => {
 			console.log('use');
 			return Promise.resolve(val.data);
 		});
-		const api = () => {
-			return Root.get('/todos/1');
+		const api = (i: number) => {
+			return Root.get('/todos/' + i);
 		};
 		const result = [];
-		for (let i = 0; i < 60; i++) {
-			result.push(api());
+		for (let i = 0; i < 30; i++) {
+			result.push(api(1));
+		}
+		for (let i = 0; i < 30; i++) {
+			result.push(api(1));
 		}
 		const value = await Promise.all(result);
 		console.log(value);
-	}, 20000);
+	}, 2000);
 });
