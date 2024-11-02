@@ -1,5 +1,5 @@
 {
-	"name": "request",
+	"name": "@wang-yige/request",
 	"version": "0.0.1",
 	"description": "A warpper for axios, add some useful features like retry, cache, etc.",
 	"type": "module",
