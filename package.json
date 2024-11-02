@@ -1,15 +1,33 @@
 {
 	"name": "request",
 	"version": "0.0.1",
-	"description": "",
+	"description": "A warpper for axios, add some useful features like retry, cache, etc.",
 	"type": "module",
 	"main": "dist/index.cjs",
+	"module": "dist/index.mjs",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"require": "./dist/index.cjs",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"keywords": [
+		"axios",
+		"request",
+		"JavaScript",
+		"TypeScript"
+	],
+	"author": "Yige Wang <wyg1776686515@gmail.com>",
+	"homepage": "https://github.com/wangyige0701/request#readme",
+	"license": "MIT",
 	"scripts": {
 		"build": "rollup -c",
 		"test": "vitest"
 	},
-	"author": "",
-	"license": "MIT",
 	"dependencies": {
 		"@wang-yige/utils": "^0.0.13",
 		"axios": "^1.7.7"
