@@ -1,6 +1,6 @@
 {
 	"name": "@wang-yige/request",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "A warpper for axios, add some useful features like retry, cache, etc.",
 	"type": "module",
 	"main": "dist/index.cjs",
@@ -9,7 +9,8 @@
 	"exports": {
 		".": {
 			"require": "./dist/index.cjs",
-			"import": "./dist/index.mjs"
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.ts"
 		}
 	},
 	"files": [
@@ -30,10 +31,12 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "rollup -c",
-		"test": "vitest"
+		"test": "vitest",
+		"push": "npm publish --access public",
+		"server": "node server/app.js"
 	},
 	"dependencies": {
-		"@wang-yige/utils": "^0.0.13",
+		"@wang-yige/utils": "^0.0.18",
 		"axios": "^1.7.7"
 	},
 	"devDependencies": {

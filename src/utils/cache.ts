@@ -49,8 +49,8 @@ export class CacheController {
 		}
 		const { method = Methods.GET } = config;
 		const methodUpper = upperCase(method);
-		if (methodUpper !== Methods.GET) {
-			throw new Error('cache only support GET method');
+		if (methodUpper !== Methods.GET.toUpperCase()) {
+			throw new Error('cache only supported for the GET method');
 		}
 		const key = `//${methodUpper}::${this.#axios.getUri(config)}`;
 		this.#cacheKeys.set(config, key);

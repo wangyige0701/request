@@ -19,7 +19,7 @@ import { CacheController, ResponseCache } from './utils/cache';
 import { SingleController, SingleType } from './utils/single';
 
 export class APIRequest {
-	/** The type of single */
+	/** The data of single types */
 	static Single = SingleType;
 
 	#userAgent?: string = void 0;
@@ -36,6 +36,7 @@ export class APIRequest {
 		onRejected: (error: any) => any;
 	};
 	#requestInterceptorIndex: number;
+	#responseInterceptorIndex: number;
 	// ===== controller =====
 	#cacheController: CacheController;
 	#singleController: SingleController;
@@ -84,7 +85,7 @@ export class APIRequest {
 			this.#requestInterceptor.onFulfilled,
 			this.#requestInterceptor.onRejected,
 		);
-		this.#axios.interceptors.response.use(
+		this.#responseInterceptorIndex = this.#axios.interceptors.response.use(
 			(response: AxiosResponse<any, any> & InterceptResponseConfig) => {
 				this.#cacheController.response(response.config, response);
 				return response;
@@ -98,24 +99,33 @@ export class APIRequest {
 		);
 	}
 
+	/**
+	 * Registered domains
+	 */
 	get domains() {
 		return this.#domains;
 	}
 
+	/**
+	 * The interceptor for request
+	 */
 	get request() {
 		const request = this.#axios.interceptors.request;
 		return {
 			use: (...args) => {
 				request.eject(this.#requestInterceptorIndex);
 				const index = request.use(...args);
-				this.#requestInterceptorIndex = this.#axios.interceptors.request.use(
+				this.#requestInterceptorIndex = request.use(
 					this.#requestInterceptor.onFulfilled,
 					this.#requestInterceptor.onRejected,
 				);
 				return index;
 			},
-			eject: (...args) => {
-				return request.eject(...args);
+			eject: (id: number) => {
+				if (id === this.#requestInterceptorIndex) {
+					return;
+				}
+				return request.eject(id);
 			},
 			clear: () => {
 				return request.clear();
@@ -123,8 +133,25 @@ export class APIRequest {
 		} as AxiosInterceptorManager<InternalAxiosRequestConfig<any>>;
 	}
 
+	/**
+	 * The interceptor for response
+	 */
 	get response() {
-		return this.#axios.interceptors.response;
+		const response = this.#axios.interceptors.response;
+		return {
+			use: (...args) => {
+				return response.use(...args);
+			},
+			eject: (id: number) => {
+				if (id === this.#responseInterceptorIndex) {
+					return;
+				}
+				return response.eject(id);
+			},
+			clear: () => {
+				return response.clear();
+			},
+		} as AxiosInterceptorManager<AxiosResponse<any, any>>;
 	}
 
 	get<T = any, R = AxiosResponse<T>, D = any>(url: string, config?: RequestConfig<D>) {
