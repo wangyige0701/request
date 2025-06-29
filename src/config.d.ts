@@ -39,7 +39,7 @@ export interface CustomConfig {
 	 */
 	singleType?: SingleType;
 	/**
-	 * Cache the Get request response.
+	 * Cache the `Get` request response.
 	 * - default `false`
 	 */
 	cache?: boolean;

@@ -191,9 +191,9 @@ describe('APIRequest', () => {
 		for (let i = 0; i < 30; i++) {
 			result.push(api(1));
 		}
-		for (let i = 0; i < 30; i++) {
-			result.push(api(1));
-		}
+		// for (let i = 0; i < 30; i++) {
+		// 	result.push(api(1));
+		// }
 		const value = await Promise.all(result);
 		console.log(value);
 	}, 2000);

@@ -39,6 +39,7 @@ export function handleRetry<T extends Promise<any>>(
 	const useRetry = async (n: number = 0): Promise<any> => {
 		let requestConfig = config;
 		if (changeDomain) {
+			// 循环修改请求域名
 			const index = domainIndex++;
 			if (domainIndex >= domainList.length) {
 				domainIndex = -1;
@@ -52,7 +53,7 @@ export function handleRetry<T extends Promise<any>>(
 			}
 		}
 		return fn(requestConfig).catch(err => {
-			// cancel request or max retry throw directly
+			// 请求取消或超出最大请求次数直接抛出
 			if (axios.isCancel(err) || n >= count) {
 				return Promise.reject(err) as T;
 			}

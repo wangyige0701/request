@@ -19,6 +19,7 @@ export enum SingleType {
 	PREV = 'prev',
 	/**
 	 * If the prev request is not finished, the latest request will be added to the queue.
+	 * - Default value
 	 */
 	QUEUE = 'queue',
 }
